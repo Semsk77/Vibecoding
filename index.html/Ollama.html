@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Academy - Изучи Python онлайн</title>
+    <!-- Подключаем Pyodide для выполнения Python в браузере -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.9.140/full/pyodide.js"></script>
+    <style>
+        :root {
+            --primary: #2f80ed;
+            --bg: #1e1e2e;
+            --sidebar: #181825;
+            --text: #cdd6f4;
+            --success: #4caf50;
+            --error: #f44336;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background-color: var(--sidebar);
+            border-right: 1px solid #313244;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 { font-size: 1.2rem; color: var(--primary); }
+
+        .lesson-list { list-style: none; padding: 0; }
+        .lesson-item {
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .lesson-item:hover { background: #313244; }
+        .lesson-item.active { background: var(--primary); color: white; }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .instruction-card {
+            background: #313244;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        textarea {
+            flex: 1;
+            background: #11111b;
+            color: #a6e3a1;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #45475a;
+            resize: none;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 25px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-run { background: var(--primary); color: white; }
+        .btn-run:hover { opacity: 0.8; }
+
+        .console {
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            border: 1px solid #45475a;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader" class="loading-overlay">
+        <div>Загрузка Python среды... (может занять до 10 сек)</div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <h2>Python Course</h2>
+            <div id="lesson-list" class="lesson-list">
+                <!-- Уроки будут вставлены JS -->
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <h1 id="current-title">Загрузка...</h1>
+                <div id="progress">Урок 1 / 5</div>
+            </div>
+
+            <div class="instruction-card">
+                <h3 id="current-desc">Описание урока</h3>
+                <p id="current-task">Задание появится здесь.</p>
+            </div>
+
+            <div class="editor-container">
+                <textarea id="code-editor" spellcheck="false"></textarea>
+                <div class="controls">
+                    <button class="btn-run" onclick="runCode()">Запустить код</button>
+                    <button style="background: #555; color: white;" onclick="nextLesson()">Следующий урок</button>
+                </div>
+                <div class="console" id="console-output">// Вывод программы появится здесь...</div>
+                <div id="status-msg" class="status"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Данные курса
+        const courseData = [
+            {
+                title: "1. Переменные",
+                desc: "В Python переменные создаются простым присваиванием.",
+                task: "Создайте переменную 'name' и присвойте ей значение 'Python'. Затем выведите её через print(name).",
+                initialCode: "name = 'Python'\nprint(name)",
+                test: (code) => {
+                    return code.includes("name = 'Python'") && code.includes("print(name)");
+                }
+            },
+            {
+                title: "2. Типы данных",
+                desc: "Числа (int, float) и строки (str) — основные типы.",
+                task: "Создайте переменную 'age' со значением 25 и 'price' со значением 99.9. Выведите их.",
+                initialCode: "age = 25\nprice = 99.9\nprint(age, price)",
+                test: (code) => {
+                    return code.includes("age = 25") && code.includes("price = 99.9");
+                }
+            },
+            {
+                title: "3. Списки (Lists)",
+                desc: "Списки позволяют хранить несколько элементов в одной переменной.",
+                task: "Создайте список 'fruits' с элементами 'apple', 'banana'. Выведите первый элемент списка (индекс 0).",
+                initialCode: "fruits = ['apple', 'banana']\nprint(fruits[0])",
+                test: (code) => {
+                    return code.includes("fruits = ['apple', 'banana']") && code.includes("fruits[0]");
+                }
+            },
+            {
+                title: "4. Циклы For",
+                desc: "Цикл for используется для перебора последовательностей.",
+                task: "Используя цикл for, выведите числа от 0 до 4.",
+                initialCode: "for i in range(5):\n    print(i)",
+                test: (code) => {
+                    return code.includes("for i in range(5)") && code.includes("print(i)");
+                }
+            },
+            {
+                title: "5. Функции",
+                desc: "Функции позволяют группировать код для повторного использования.",
+                task: "Напишите функцию 'greet', которая принимает имя и возвращает 'Hello, [имя]'. Вызовите её.",
+                initialCode: "def greet(name):\n    return f'Hello, {name}'\n\nprint(greet('User'))",
+                test: (code) => {
+                    return code.includes("def greet") && code.includes("return");
+                }
+            }
+        ];
+
+        let currentLessonIndex = 0;
+        let pyodide;
+
+        // Инициализация Pyodide
+        async function initPyodide() {
+            try {
+                pyodide = await _loadPyodide();
+                document.getElementById('loader').style.display = 'none';
+                renderLesson();
+            } catch (e) {
+                console.error(e);
+                alert("Ошибка загрузки Pyodide. Проверьте интернет или обновите страницу.");
+            }
+        }
+
+        // Загрузка Pyodide из глобального объекта (создается библиотекой)
+        async function _loadPyodide() {
+            return await _loadPyodide(); // В новых версиях pyodide.js сам создает глобальную функцию
+        }
+        
+        // Если Pyodide инициализировался корректно, он создает глобальный объект pyodide
+        // Мы используем стандартный способ вызова из CDN
+        window.onload = async () => {
+            if (typeof _loadPyodide === 'undefined') {
+                // В некоторых версиях доступно просто через глобальный pyodide
+                // Но для надежности будем использовать стандартный метод инициализации
+            }
+            
+            // Ждем загрузки скрипта и инициализируем
+            const checkPyodide = setInterval(() => {
+                if (typeof pyodide !== 'undefined' || (window.Pyodide && window.Pyodide.loadPython)) {
+                    // Если скрипт загрузился, Pyodide инициализируется автоматически или вручную
+                    // Но проще всего использовать await pyodide.runPython(...) после загрузки
+                    initPyodide();
+                    clearInterval(checkPyodide);
+                }
+            }, 500);
+        };
+
+        // Специальная обработка для Pyodide (так как он динамически грузится)
+        // Перезапишем функцию инициализации для работы с глобальным объектом
+        async function initPyodide_Fixed() {
+            // Pyodide обычно создает глобальный объект pyodide после загрузки
+            // Но мы можем вызвать его через глобальный объект, если он уже готов
+            if (typeof _loadPyodide !== 'undefined') {
+                pyodide = await _loadPyodide();
+                document.getElementById('loader').style.display = 'none';
+                renderLesson();
+            }
+        }
+
+        // На самом деле, проще всего использовать стандартный путь загрузки:
+        // Заменим старый блок init на этот:
+        async function startup() {
+            // Pyodide автоматически создает глобальный объект pyodide после загрузки
+            // Мы просто ждем его появления
+            let attempts = 0;
+            while(!window.pyodide && attempts < 50) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            
+            // Это упрощенный путь для работы в одном файле
+            // Используем встроенный в скрипт способ запуска
+            try {
+                // Если Pyodide уже загружен скриптом
+                if (typeof pyodide !== 'undefined') {
+                   document.getElementById('loader').style.display = 'none';
+                   renderLesson();
+                }
+            } catch(e) {}
+        }
+
+        // Исправленный подход к инициализации для одного файла
+        // Мы используем стандартный скрипт Pyodide, который создает глобальную переменную.
+        
+        // ВАЖНО: Pyodide автоматически инициализируется при загрузке скрипта.
+        // Мы просто ждем готовности.
+        
+        function renderLesson() {
+            const lesson = courseData[currentLessonIndex];
+            document.getElementById('current-title').innerText = lesson.title;
+            document.getElementById('current-desc').innerText = lesson.desc;
+            document.getElementById('current-task').innerText = lesson.task;
+            document.getElementById('code-editor').value = lesson.initialCode;
+            document.getElementById('progress').innerText = `Урок ${currentLessonIndex + 1} / ${courseData.length}`;
+            document.getElementById('status-msg').style.display = 'none';
+            document.getElementById('console-output').innerText = "// Вывод программы появится здесь...";
+
+            // Обновляем список уроков
+            const list = document.getElementById('lesson-list');
+            list.innerHTML = '';
+            courseData.forEach((l, index) => {
+                const div = document.createElement('div');
+                div.className = `lesson-item ${
